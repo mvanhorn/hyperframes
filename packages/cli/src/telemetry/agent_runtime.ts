@@ -34,7 +34,6 @@ export type AgentRuntime =
   | "cline"
   | "gemini_cli"
   | "crush"
-  | "openhands"
   | null;
 
 interface VendorRule {
@@ -177,23 +176,14 @@ const VENDOR_RULES: VendorRule[] = [
     name: "crush",
     check: (env) => typeof env["CRUSH"] === "string",
   },
-  // OpenHands (org formerly All-Hands-AI) — the agent only runs bash INSIDE its
-  // runtime sandbox container, whose agent-server image declares
-  //   ARG OPENHANDS_BUILD_GIT_SHA=unknown / ENV OPENHANDS_BUILD_GIT_SHA=${...}
-  // (Dockerfile:82-85), so the ENV is ALWAYS present (value "unknown" when the
-  // build arg isn't passed, the real SHA when it is) and inherited by every
-  // bash subprocess. We key on existence, so the "unknown" default still
-  // matches. Namespaced; present in all published agent-server images.
-  // Caveat: a custom/BYO base image or the non-Docker process sandbox may not
-  // carry it.
-  // Source: https://github.com/OpenHands/software-agent-sdk
-  //   (openhands-agent-server/openhands/agent_server/docker/Dockerfile:82-85)
-  {
-    name: "openhands",
-    check: (env) =>
-      typeof env["OPENHANDS_BUILD_GIT_SHA"] === "string" ||
-      typeof env["OPENHANDS_BUILD_GIT_REF"] === "string",
-  },
+  // OpenHands was evaluated and DROPPED: the OPENHANDS_BUILD_GIT_SHA / _REF
+  // ENV exists in the agent-server Dockerfile (base-image-minimal stage, added
+  // 2025-11-09 in PR #1100), but it is empirically ABSENT from the runtime env
+  // of every published `ghcr.io/openhands/agent-server` image inspected (12+
+  // tags spanning 2025-10 through 2026-01, including the merge commit of the PR
+  // that introduced it). The declared ENV does not reach the published image,
+  // so a rule keyed on it would never fire. Re-add only if a real published
+  // image is confirmed to carry the var in `docker inspect .Config.Env`.
 ];
 
 /**

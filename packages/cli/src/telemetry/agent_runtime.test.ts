@@ -23,8 +23,6 @@ const VENDOR_ENV_KEYS = [
   "CLINE_ACTIVE",
   "GEMINI_CLI",
   "CRUSH",
-  "OPENHANDS_BUILD_GIT_SHA",
-  "OPENHANDS_BUILD_GIT_REF",
 ] as const;
 
 function stripVendorEnv(): void {
@@ -168,7 +166,7 @@ describe("detectAgentRuntime — Replit / Hermes / openclaw / Pi", () => {
   });
 });
 
-describe("detectAgentRuntime — Windsurf / Cline / Gemini CLI / Crush / OpenHands", () => {
+describe("detectAgentRuntime — Windsurf / Cline / Gemini CLI / Crush", () => {
   const savedEnv = { ...process.env };
   beforeEach(stripVendorEnv);
   afterEach(() => {
@@ -203,18 +201,6 @@ describe("detectAgentRuntime — Windsurf / Cline / Gemini CLI / Crush / OpenHan
     process.env["CRUSH"] = "1";
     const { detectAgentRuntime } = await import("./agent_runtime.js");
     expect(detectAgentRuntime()).toBe("crush");
-  });
-
-  it("detects OpenHands via OPENHANDS_BUILD_GIT_SHA (baked into the runtime image)", async () => {
-    process.env["OPENHANDS_BUILD_GIT_SHA"] = "abc1234";
-    const { detectAgentRuntime } = await import("./agent_runtime.js");
-    expect(detectAgentRuntime()).toBe("openhands");
-  });
-
-  it("detects OpenHands via OPENHANDS_BUILD_GIT_REF as well", async () => {
-    process.env["OPENHANDS_BUILD_GIT_REF"] = "main";
-    const { detectAgentRuntime } = await import("./agent_runtime.js");
-    expect(detectAgentRuntime()).toBe("openhands");
   });
 
   it("does NOT misread the user-set value (existence only) — GEMINI_CLI key shape ignored", async () => {

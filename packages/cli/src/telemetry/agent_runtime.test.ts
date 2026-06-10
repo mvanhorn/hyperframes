@@ -20,6 +20,11 @@ const VENDOR_ENV_KEYS = [
   "OPENCLAW_STATE_DIR",
   "OPENCLAW_CONFIG_PATH",
   "PI_CODING_AGENT",
+  "CLINE_ACTIVE",
+  "GEMINI_CLI",
+  "CRUSH",
+  "OPENHANDS_BUILD_GIT_SHA",
+  "OPENHANDS_BUILD_GIT_REF",
 ] as const;
 
 function stripVendorEnv(): void {
@@ -160,6 +165,62 @@ describe("detectAgentRuntime — Replit / Hermes / openclaw / Pi", () => {
     process.env["PI_CODING_AGENT"] = "true";
     const { detectAgentRuntime } = await import("./agent_runtime.js");
     expect(detectAgentRuntime()).toBe("pi");
+  });
+});
+
+describe("detectAgentRuntime — Windsurf / Cline / Gemini CLI / Crush / OpenHands", () => {
+  const savedEnv = { ...process.env };
+  beforeEach(stripVendorEnv);
+  afterEach(() => {
+    process.env = { ...savedEnv };
+  });
+
+  it("detects Windsurf via TERM_PROGRAM=windsurf", async () => {
+    process.env["TERM_PROGRAM"] = "windsurf";
+    const { detectAgentRuntime } = await import("./agent_runtime.js");
+    expect(detectAgentRuntime()).toBe("windsurf");
+  });
+
+  it("detects Windsurf case-insensitively (TERM_PROGRAM=Windsurf)", async () => {
+    process.env["TERM_PROGRAM"] = "Windsurf";
+    const { detectAgentRuntime } = await import("./agent_runtime.js");
+    expect(detectAgentRuntime()).toBe("windsurf");
+  });
+
+  it("detects Cline via CLINE_ACTIVE (default vscode-terminal path)", async () => {
+    process.env["CLINE_ACTIVE"] = "true";
+    const { detectAgentRuntime } = await import("./agent_runtime.js");
+    expect(detectAgentRuntime()).toBe("cline");
+  });
+
+  it("detects Gemini CLI via GEMINI_CLI", async () => {
+    process.env["GEMINI_CLI"] = "1";
+    const { detectAgentRuntime } = await import("./agent_runtime.js");
+    expect(detectAgentRuntime()).toBe("gemini_cli");
+  });
+
+  it("detects Crush via CRUSH (set unconditionally on every spawned shell)", async () => {
+    process.env["CRUSH"] = "1";
+    const { detectAgentRuntime } = await import("./agent_runtime.js");
+    expect(detectAgentRuntime()).toBe("crush");
+  });
+
+  it("detects OpenHands via OPENHANDS_BUILD_GIT_SHA (baked into the runtime image)", async () => {
+    process.env["OPENHANDS_BUILD_GIT_SHA"] = "abc1234";
+    const { detectAgentRuntime } = await import("./agent_runtime.js");
+    expect(detectAgentRuntime()).toBe("openhands");
+  });
+
+  it("detects OpenHands via OPENHANDS_BUILD_GIT_REF as well", async () => {
+    process.env["OPENHANDS_BUILD_GIT_REF"] = "main";
+    const { detectAgentRuntime } = await import("./agent_runtime.js");
+    expect(detectAgentRuntime()).toBe("openhands");
+  });
+
+  it("does NOT misread the user-set value (existence only) — GEMINI_CLI key shape ignored", async () => {
+    process.env["GEMINI_CLI"] = "anything";
+    const { detectAgentRuntime } = await import("./agent_runtime.js");
+    expect(detectAgentRuntime()).toBe("gemini_cli");
   });
 });
 

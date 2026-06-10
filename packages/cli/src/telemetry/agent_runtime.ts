@@ -30,6 +30,11 @@ export type AgentRuntime =
   | "hermes"
   | "openclaw"
   | "pi"
+  | "windsurf"
+  | "cline"
+  | "gemini_cli"
+  | "crush"
+  | "openhands"
   | null;
 
 interface VendorRule {
@@ -75,6 +80,17 @@ const VENDOR_RULES: VendorRule[] = [
   {
     name: "cursor",
     check: (env) => env["TERM_PROGRAM"] === "cursor",
+  },
+  // Windsurf (Codeium) integrated terminal — exports TERM_PROGRAM=windsurf, the
+  // direct analog of the Cursor rule above. Attested across many independent
+  // detectors (nx packages/nx/src/native/ide/detection.rs, adonisjs/application,
+  // ag-grid git-hooks). Compared case-insensitively because sources disagree on
+  // casing ("windsurf" vs "Windsurf"). Like Cursor this marks the editor's
+  // integrated terminal, not specifically that the Cascade agent is driving;
+  // under WSL/remote it can also fall back to TERM_PROGRAM=vscode.
+  {
+    name: "windsurf",
+    check: (env) => env["TERM_PROGRAM"]?.toLowerCase() === "windsurf",
   },
   // GitHub Copilot Coding Agent — runs inside GitHub Actions and the
   // workflow injects an additional marker to distinguish from generic CI.
@@ -123,6 +139,56 @@ const VENDOR_RULES: VendorRule[] = [
   {
     name: "pi",
     check: (env) => typeof env["PI_CODING_AGENT"] === "string",
+  },
+  // Cline (cline/cline) VS Code extension — injects CLINE_ACTIVE=true into the
+  // integrated terminal via vscode.TerminalOptions.env, which the terminal
+  // exports to every shell command run in it
+  // (apps/vscode/src/hosts/vscode/terminal/VscodeTerminalRegistry.ts:29).
+  // Caveat: present only on the default "vscodeTerminal" exec path — the opt-in
+  // backgroundExec/YOLO path spawns via child_process without the marker. Same
+  // integrated-terminal-only scope as the Cursor/Windsurf rules above.
+  // Source: https://github.com/cline/cline (VscodeTerminalRegistry.ts:29)
+  {
+    name: "cline",
+    check: (env) => typeof env["CLINE_ACTIVE"] === "string",
+  },
+  // Google Gemini CLI (open-source @google/gemini-cli) — DISTINCT from the
+  // Gemini managed-agent sandbox (detected by the /.agents/ filesystem mount,
+  // which takes precedence ahead of this loop). The shell-execution service
+  // sets GEMINI_CLI=1 on the child env of every shell command it spawns, so
+  // downstream executables can tell they were launched by Gemini CLI
+  // (packages/core/src/services/shellExecutionService.ts:56,486-487 — spread
+  // onto baseEnv after sanitizeEnvironment, passed as env: to both the
+  // child_process and node-pty spawn paths).
+  // Caveat: under STRICT sanitization (when GITHUB_SHA is set / the GitHub
+  // Action surface) GEMINI_CLI is not allow-listed and gets stripped — reliable
+  // for the local CLI, not inside Gemini's GitHub Action runner.
+  // Source: https://github.com/google-gemini/gemini-cli (shellExecutionService.ts:56,486-487)
+  {
+    name: "gemini_cli",
+    check: (env) => typeof env["GEMINI_CLI"] === "string",
+  },
+  // Crush (charmbracelet/crush) — internal/shell/shell.go:43-48,98
+  // unconditionally appends CRUSH=1 (plus generic AGENT=crush / AI_AGENT=crush)
+  // to the env of every shell it spawns: both the interactive bash tool and the
+  // hook runner. We key on CRUSH since AGENT/AI_AGENT are generic and collide.
+  // Source: https://github.com/charmbracelet/crush (internal/shell/shell.go:43-48,98)
+  {
+    name: "crush",
+    check: (env) => typeof env["CRUSH"] === "string",
+  },
+  // OpenHands (All-Hands-AI) — the agent only runs bash INSIDE its runtime
+  // sandbox container, whose image bakes OPENHANDS_BUILD_GIT_SHA / _REF as ENV
+  // (software-agent-sdk agent-server Dockerfile:84-85). sanitized_env() copies
+  // the full os.environ to every bash subprocess (openhands-sdk command.py), so
+  // the marker is present wherever the CLI runs. Namespaced; present in all
+  // published agent-server image variants.
+  // Source: https://github.com/All-Hands-AI/software-agent-sdk (agent-server Dockerfile:84-85)
+  {
+    name: "openhands",
+    check: (env) =>
+      typeof env["OPENHANDS_BUILD_GIT_SHA"] === "string" ||
+      typeof env["OPENHANDS_BUILD_GIT_REF"] === "string",
   },
 ];
 

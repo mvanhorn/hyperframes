@@ -22,7 +22,7 @@
     },
     "packages/aws-lambda": {
       "name": "@hyperframes/aws-lambda",
-      "version": "0.6.80",
+      "version": "0.6.86",
       "dependencies": {
         "@aws-sdk/client-s3": "^3.700.0",
         "@aws-sdk/client-sfn": "^3.700.0",
@@ -54,7 +54,7 @@
     },
     "packages/cli": {
       "name": "@hyperframes/cli",
-      "version": "0.6.80",
+      "version": "0.6.86",
       "bin": {
         "hyperframes": "./dist/cli.js",
       },
@@ -101,7 +101,7 @@
     },
     "packages/core": {
       "name": "@hyperframes/core",
-      "version": "0.6.80",
+      "version": "0.6.86",
       "dependencies": {
         "@babel/parser": "^7.27.0",
         "@chenglou/pretext": "^0.0.5",
@@ -130,7 +130,7 @@
     },
     "packages/engine": {
       "name": "@hyperframes/engine",
-      "version": "0.6.80",
+      "version": "0.6.86",
       "dependencies": {
         "@hono/node-server": "^1.13.0",
         "@hyperframes/core": "workspace:^",
@@ -148,7 +148,7 @@
     },
     "packages/gcp-cloud-run": {
       "name": "@hyperframes/gcp-cloud-run",
-      "version": "0.6.79",
+      "version": "0.6.86",
       "dependencies": {
         "@google-cloud/storage": "^7.14.0",
         "@google-cloud/workflows": "^4.2.0",
@@ -168,7 +168,7 @@
     },
     "packages/player": {
       "name": "@hyperframes/player",
-      "version": "0.6.80",
+      "version": "0.6.86",
       "devDependencies": {
         "@types/bun": "^1.1.0",
         "gsap": "^3.12.5",
@@ -180,7 +180,7 @@
     },
     "packages/producer": {
       "name": "@hyperframes/producer",
-      "version": "0.6.80",
+      "version": "0.6.86",
       "dependencies": {
         "@fontsource/archivo-black": "^5.2.8",
         "@fontsource/eb-garamond": "^5.2.7",
@@ -219,9 +219,22 @@
         "typescript": "^5.7.2",
       },
     },
+    "packages/sdk": {
+      "name": "@hyperframes/sdk",
+      "version": "0.6.86",
+      "dependencies": {
+        "@hyperframes/core": "workspace:*",
+        "linkedom": "^0.18.12",
+      },
+      "devDependencies": {
+        "@types/node": "^25.0.10",
+        "typescript": "^5.0.0",
+        "vitest": "^3.2.4",
+      },
+    },
     "packages/shader-transitions": {
       "name": "@hyperframes/shader-transitions",
-      "version": "0.6.80",
+      "version": "0.6.86",
       "dependencies": {
         "html2canvas": "^1.4.1",
       },
@@ -233,7 +246,7 @@
     },
     "packages/studio": {
       "name": "@hyperframes/studio",
-      "version": "0.6.80",
+      "version": "0.6.86",
       "dependencies": {
         "@codemirror/autocomplete": "^6.20.1",
         "@codemirror/commands": "^6.10.3",
@@ -629,6 +642,8 @@
     "@hyperframes/player": ["@hyperframes/player@workspace:packages/player"],
 
     "@hyperframes/producer": ["@hyperframes/producer@workspace:packages/producer"],
+
+    "@hyperframes/sdk": ["@hyperframes/sdk@workspace:packages/sdk"],
 
     "@hyperframes/shader-transitions": ["@hyperframes/shader-transitions@workspace:packages/shader-transitions"],
 

@@ -2,6 +2,7 @@ import { memo, type ReactNode } from "react";
 import { TimelineClip } from "./TimelineClip";
 import { TimelineClipDiamonds } from "./TimelineClipDiamonds";
 import { TimelineRuler } from "./TimelineRuler";
+import { PlayheadIndicator } from "./PlayheadIndicator";
 import {
   getTimelineEditCapabilities,
   resolveBlockedTimelineEditIntent,
@@ -91,6 +92,8 @@ interface TimelineCanvasProps {
   onContextMenuKeyframe?: (e: React.MouseEvent, elementId: string, percentage: number) => void;
   onContextMenuClip?: (e: React.MouseEvent, element: TimelineElement) => void;
   onToggleKeyframeAtPlayhead?: (element: TimelineElement) => void;
+  onRazorSplit?: (element: TimelineElement, splitTime: number) => void;
+  onRazorSplitAll?: (splitTime: number) => void;
 }
 
 export const TimelineCanvas = memo(function TimelineCanvas({
@@ -141,6 +144,8 @@ export const TimelineCanvas = memo(function TimelineCanvas({
   onContextMenuKeyframe,
   onContextMenuClip,
   onToggleKeyframeAtPlayhead: _onToggleKeyframeAtPlayhead,
+  onRazorSplit,
+  onRazorSplitAll,
 }: TimelineCanvasProps) {
   const draggedElement = draggedClip?.element ?? null;
   const activeDraggedElement =
@@ -305,6 +310,7 @@ export const TimelineCanvas = memo(function TimelineCanvas({
                     }}
                     onPointerDown={(e) => {
                       if (e.button !== 0) return;
+                      if (usePlayerStore.getState().activeTool === "razor") return;
                       if (e.shiftKey) {
                         shiftClickClipRef.current = {
                           element: el,
@@ -358,6 +364,26 @@ export const TimelineCanvas = memo(function TimelineCanvas({
                     onClick={(e) => {
                       e.stopPropagation();
                       if (suppressClickRef.current) return;
+                      const { activeTool } = usePlayerStore.getState();
+                      if (activeTool === "razor" && onRazorSplit) {
+                        const clipRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        const clickOffsetX = e.clientX - clipRect.left;
+                        const splitTime = previewElement.start + clickOffsetX / pps;
+                        const epsilon = 0.03;
+                        const clampedTime = Math.max(
+                          previewElement.start + epsilon,
+                          Math.min(
+                            previewElement.start + previewElement.duration - epsilon,
+                            splitTime,
+                          ),
+                        );
+                        if (e.shiftKey && onRazorSplitAll) {
+                          onRazorSplitAll(clampedTime);
+                        } else {
+                          onRazorSplit(el, clampedTime);
+                        }
+                        return;
+                      }
                       const nextElement = isSelected ? null : el;
                       setSelectedElementId(nextElement ? elementKey : null);
                       onSelectElement?.(nextElement);
@@ -457,28 +483,7 @@ export const TimelineCanvas = memo(function TimelineCanvas({
         className="absolute top-0 bottom-0 pointer-events-none"
         style={{ left: `${GUTTER}px`, zIndex: 100 }}
       >
-        <div
-          className="absolute top-0 bottom-0"
-          style={{
-            left: "50%",
-            width: 2,
-            marginLeft: -1,
-            background: "var(--hf-accent, #3CE6AC)",
-            boxShadow: "0 0 8px rgba(60,230,172,0.5)",
-          }}
-        />
-        <div className="absolute" style={{ left: "50%", top: 0, transform: "translateX(-50%)" }}>
-          <div
-            style={{
-              width: 0,
-              height: 0,
-              borderLeft: "6px solid transparent",
-              borderRight: "6px solid transparent",
-              borderTop: "8px solid var(--hf-accent, #3CE6AC)",
-              filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.6))",
-            }}
-          />
-        </div>
+        <PlayheadIndicator />
       </div>
     </div>
   );

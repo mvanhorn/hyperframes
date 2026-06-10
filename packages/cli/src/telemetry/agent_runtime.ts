@@ -177,13 +177,17 @@ const VENDOR_RULES: VendorRule[] = [
     name: "crush",
     check: (env) => typeof env["CRUSH"] === "string",
   },
-  // OpenHands (All-Hands-AI) — the agent only runs bash INSIDE its runtime
-  // sandbox container, whose image bakes OPENHANDS_BUILD_GIT_SHA / _REF as ENV
-  // (software-agent-sdk agent-server Dockerfile:84-85). sanitized_env() copies
-  // the full os.environ to every bash subprocess (openhands-sdk command.py), so
-  // the marker is present wherever the CLI runs. Namespaced; present in all
-  // published agent-server image variants.
-  // Source: https://github.com/All-Hands-AI/software-agent-sdk (agent-server Dockerfile:84-85)
+  // OpenHands (org formerly All-Hands-AI) — the agent only runs bash INSIDE its
+  // runtime sandbox container, whose agent-server image declares
+  //   ARG OPENHANDS_BUILD_GIT_SHA=unknown / ENV OPENHANDS_BUILD_GIT_SHA=${...}
+  // (Dockerfile:82-85), so the ENV is ALWAYS present (value "unknown" when the
+  // build arg isn't passed, the real SHA when it is) and inherited by every
+  // bash subprocess. We key on existence, so the "unknown" default still
+  // matches. Namespaced; present in all published agent-server images.
+  // Caveat: a custom/BYO base image or the non-Docker process sandbox may not
+  // carry it.
+  // Source: https://github.com/OpenHands/software-agent-sdk
+  //   (openhands-agent-server/openhands/agent_server/docker/Dockerfile:82-85)
   {
     name: "openhands",
     check: (env) =>

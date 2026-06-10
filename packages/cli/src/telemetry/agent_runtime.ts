@@ -152,8 +152,10 @@ const VENDOR_RULES: VendorRule[] = [
     check: (env) => typeof env["CLINE_ACTIVE"] === "string",
   },
   // Google Gemini CLI (open-source @google/gemini-cli) — DISTINCT from the
-  // Gemini managed-agent sandbox (detected by the /.agents/ filesystem mount,
-  // which takes precedence ahead of this loop). The shell-execution service
+  // Gemini managed-agent sandbox. (If a /.agents/ filesystem detector is
+  // present in detectAgentRuntime() it runs ahead of this loop and wins for a
+  // managed-agent sandbox, leaving this rule to match only the local CLI.)
+  // The shell-execution service
   // sets GEMINI_CLI=1 on the child env of every shell command it spawns, so
   // downstream executables can tell they were launched by Gemini CLI
   // (packages/core/src/services/shellExecutionService.ts:56,486-487 — spread

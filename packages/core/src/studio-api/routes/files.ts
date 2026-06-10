@@ -408,6 +408,14 @@ type GsapMutationRequest =
         auto?: boolean;
       }>;
       ease?: string;
+    }
+  | {
+      type: "split-animations";
+      originalId: string;
+      newId: string;
+      splitTime: number;
+      elementStart: number;
+      elementDuration: number;
     };
 
 // ── GSAP mutation executor ──────────────────────────────────────────────────
@@ -434,6 +442,7 @@ async function executeGsapMutation(
     updateArcSegmentInScript,
     removeArcPathFromScript,
     addAnimationWithKeyframesToScript,
+    splitAnimationsInScript,
   } = parser;
 
   function requireAnimation(
@@ -605,6 +614,15 @@ async function executeGsapMutation(
         body.ease,
       );
       return result.script;
+    }
+    case "split-animations": {
+      return splitAnimationsInScript(block.scriptText, {
+        originalId: body.originalId,
+        newId: body.newId,
+        splitTime: body.splitTime,
+        elementStart: body.elementStart,
+        elementDuration: body.elementDuration,
+      });
     }
     default:
       return respond({ error: `unknown mutation type: ${(body as { type: string }).type}` }, 400);

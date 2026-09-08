@@ -1,0 +1,1 @@
+PR walkthrough media for heygen-com/hyperframes PR "feat: golden baseline regression gate". Rendered by the HyperFrames CLI from an HTML composition (see PR body). Not part of the code change; this ref is never merged.

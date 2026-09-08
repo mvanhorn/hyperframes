@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>Render Provenance Sidecar — PR walkthrough</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@400;700&display=block"
+      rel="stylesheet"
+    />
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: #0b0e14; }
+      /* Opaque stage ground — white-flash guard for mid-window cuts. */
+      #root {
+        position: relative; width: 1920px; height: 1080px;
+        background: #0b0e14; font-family: "Inter", sans-serif; color: #e6edf3;
+      }
+      #film { position: absolute; inset: 0; }
+      .scene { position: absolute; inset: 0; display: grid; place-items: center; }
+      .mono { font-family: "JetBrains Mono", monospace; }
+      .dim { color: #7d8590; }
+      .sky { color: #7dd3fc; }
+      .green { color: #34d399; }
+
+      /* Scene 1 */
+      .s1-stack { text-align: center; width: 1400px; }
+      .s1-row { font-weight: 900; font-size: 128px; letter-spacing: -0.035em; line-height: 1.06; }
+      .s1-row .w { display: inline-block; will-change: transform; }
+      .cmd-card {
+        margin: 64px auto 0; width: 1160px; border-radius: 18px; padding: 30px 42px;
+        background: #10151f; border: 1px solid #1d2634; text-align: left;
+        font-size: 34px;
+      }
+      .cmd-line { white-space: nowrap; }
+      .bar-track {
+        margin-top: 26px; height: 12px; border-radius: 6px; background: #1a2230; overflow: hidden;
+      }
+      .bar-fill {
+        height: 100%; width: 100%; border-radius: 6px; background: #7dd3fc;
+        transform: scaleX(0); transform-origin: left center;
+      }
+      .bar-label { margin-top: 16px; font-size: 26px; }
+      .s1-status { margin-top: 40px; font-size: 34px; font-weight: 600; }
+
+      /* Scene 2 */
+      .s2-stack { text-align: center; }
+      .s2-title { font-weight: 900; font-size: 84px; letter-spacing: -0.03em; }
+      .s2-title .w { display: inline-block; }
+      .cards { margin-top: 70px; display: flex; gap: 48px; justify-content: center; }
+      .file-card {
+        width: 560px; border-radius: 22px; padding: 46px 50px; text-align: left;
+        background: #10151f; border: 1px solid #1d2634; position: relative;
+      }
+      .file-card .glyph { font-size: 64px; line-height: 1; }
+      .file-card .fname { margin-top: 26px; font-size: 36px; font-weight: 700; }
+      .file-card .fkind { margin-top: 10px; font-size: 26px; }
+      .file-card.receipt { border-color: #21453a; }
+      .ring {
+        position: absolute; inset: -8px; border-radius: 28px;
+        border: 4px solid #34d399; pointer-events: none;
+      }
+      .s2-caption { margin-top: 56px; font-size: 32px; }
+
+      /* Scene 3 */
+      .s3-stack { width: 1460px; }
+      .s3-title { font-weight: 900; font-size: 66px; letter-spacing: -0.025em; margin-bottom: 42px; }
+      .code-panel {
+        position: relative; border-radius: 20px; background: #10151f;
+        border: 1px solid #1d2634; padding: 44px 56px; font-size: 29px; line-height: 1.62;
+        text-align: left;
+      }
+      .code-panel .row { position: relative; white-space: pre; }
+      .scanline {
+        position: absolute; left: 12px; right: 12px; height: 52px; border-radius: 10px;
+        background: rgba(52, 211, 153, 0.12); top: 40px;
+      }
+      .grp-label {
+        display: inline-block; margin: 0 0 6px; font-size: 24px; font-weight: 700;
+        letter-spacing: 0.14em; text-transform: uppercase; color: #34d399;
+      }
+
+      /* Scene 4 */
+      .s4-frame { text-align: center; width: 1500px; }
+      .s4-title { font-weight: 900; font-size: 104px; letter-spacing: -0.035em; line-height: 1.08; }
+      .s4-file { margin-top: 40px; font-size: 38px; }
+      .chips { margin-top: 56px; display: flex; gap: 28px; justify-content: center; }
+      .chip {
+        border-radius: 999px; border: 1px solid #1d2634; background: #10151f;
+        padding: 18px 36px; font-size: 30px;
+      }
+      .s4-schema { margin-top: 44px; font-size: 26px; }
+      .s4-check { margin-top: 52px; font-size: 40px; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-width="1920"
+      data-height="1080"
+      data-fps="30"
+      data-duration="25"
+    >
+      <div class="clip" id="film" data-start="0" data-duration="25">
+        <!-- S1 · The claim -->
+        <section class="scene" id="scene-1">
+          <div class="s1-stack">
+            <div class="s1-row"><span class="w">Every</span> <span class="w">render</span></div>
+            <div class="s1-row"><span class="w">ships</span> <span class="w">a</span> <span class="w green">receipt.</span></div>
+            <div class="cmd-card mono" id="cmd-card">
+              <div class="cmd-line"><span class="dim">$</span> <span class="sky">npx hyperframes render --output out.mp4</span></div>
+              <div class="bar-track"><div class="bar-fill" id="bar-fill"></div></div>
+              <div class="bar-label dim" id="bar-label">capturing frames…</div>
+            </div>
+            <div class="s1-status" id="s1-status"><span class="green">✓</span> Render complete — <span class="mono">out.mp4</span> <span class="dim">· 4.0s video</span></div>
+          </div>
+        </section>
+
+        <!-- S2 · Two artifacts -->
+        <section class="scene" id="scene-2">
+          <div class="s2-stack" id="s2-group">
+            <div class="s2-title"><span class="w">One</span> <span class="w">render.</span> <span class="w">Two</span> <span class="w">artifacts.</span></div>
+            <div class="cards">
+              <div class="file-card" id="card-video">
+                <div class="glyph">🎞️</div>
+                <div class="fname mono">out.mp4</div>
+                <div class="fkind dim">the deliverable · 716,047 bytes</div>
+              </div>
+              <div class="file-card receipt" id="card-sidecar">
+                <div class="ring" id="ring"></div>
+                <div class="glyph">🧾</div>
+                <div class="fname mono green">out.mp4.hf-render.json</div>
+                <div class="fkind dim">the provenance receipt</div>
+              </div>
+            </div>
+            <div class="s2-caption dim" id="s2-caption">
+              written only <span class="green">after the artifact commits</span> — never for a failed render
+            </div>
+          </div>
+        </section>
+
+        <!-- S3 · Inside the receipt (REAL values from this branch's render) -->
+        <section class="scene" id="scene-3">
+          <div class="s3-stack">
+            <div class="s3-title">Inside the receipt <span class="dim mono" style="font-size:38px">· out.mp4.hf-render.json</span></div>
+            <div class="code-panel mono">
+              <div class="scanline" id="scanline"></div>
+              <div class="grp" id="grp-versions">
+                <span class="grp-label">versions</span>
+                <div class="row"><span class="sky">"producer"</span>: <span class="green">"0.8.31"</span>,  <span class="sky">"node"</span>: <span class="green">"v22.22.2"</span>,</div>
+                <div class="row"><span class="sky">"ffmpeg"</span>: <span class="green">"6.1.1-3ubuntu5"</span></div>
+              </div>
+              <div class="grp" id="grp-input" style="margin-top:30px">
+                <span class="grp-label">input</span>
+                <div class="row"><span class="sky">"entrySha256"</span>: <span class="green">"f8b4a633c43aa9e4…"</span>,  <span class="sky">"fonts"</span>: [<span class="green">"Inter"</span>],</div>
+                <div class="row"><span class="sky">"compositionHash"</span>: <span class="green">"a446a96a0fe3e3b1"</span>,  <span class="sky">"variables"</span>: <span class="dim">hashed, never raw</span></div>
+              </div>
+              <div class="grp" id="grp-output" style="margin-top:30px">
+                <span class="grp-label">output</span>
+                <div class="row"><span class="sky">"sha256"</span>: <span class="green">"8f84b714…dae2f46ac"</span>,  <span class="sky">"sizeBytes"</span>: <span class="green">716047</span>,</div>
+                <div class="row"><span class="sky">"encoder"</span>: <span class="green">"h264"</span> · <span class="green">"yuv420p"</span>,  <span class="sky">"stages"</span>: <span class="dim">capture</span> <span class="green">4419ms</span> · <span class="dim">encode</span> <span class="green">1178ms</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- S4 · Arrival / close -->
+        <section class="scene" id="scene-4">
+          <div class="s4-frame">
+            <div class="s4-title">This video has<br />a <span class="green">receipt</span> too.</div>
+            <div class="s4-file mono dim" id="s4-file">walkthrough.mp4 <span class="green">+ walkthrough.mp4.hf-render.json</span></div>
+            <div class="chips mono" id="s4-chips">
+              <div class="chip"><span class="dim">disable ·</span> --no-provenance</div>
+              <div class="chip"><span class="dim">relocate ·</span> --provenance &lt;path&gt;</div>
+            </div>
+            <div class="s4-schema dim mono" id="s4-schema">schema · hyperframes.heygen.com/schema/hf-render-sidecar.json</div>
+            <div class="s4-check" id="s4-check"><span class="green">✓ sha256 verified</span> <span class="dim">— rendered by HyperFrames</span></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      const S1_CUT = 6.2;
+      const S2_CUT = 12.4;
+      const S3_CUT = 20.2;
+
+      // ── Build-time initial state ────────────────────────────────────────
+      gsap.set(["#scene-2", "#scene-3", "#scene-4"], { autoAlpha: 0 });
+      gsap.set("#scene-1 .s1-row .w", { autoAlpha: 0 });
+      gsap.set(["#cmd-card", "#s1-status"], { autoAlpha: 0, y: 50 });
+      // Scene 2's TITLE stays visible at build time — it is the seam
+      // carrier: the incoming wrapper must arrive composed, not empty.
+      gsap.set(["#card-video", "#card-sidecar"], { autoAlpha: 0 });
+      gsap.set(["#ring", "#s2-caption"], { autoAlpha: 0 });
+      gsap.set("#scene-3 .grp", { autoAlpha: 0 });
+      gsap.set("#scanline", { autoAlpha: 0 });
+      gsap.set(["#s4-chips .chip", "#s4-schema", "#s4-check"], { autoAlpha: 0 });
+
+      // ── S1 · waterfall entry (§6): binary opacity, y from below ─────────
+      // Anchors travel further/longer; light words snap. Overlapping cascade.
+      const s1Words = gsap.utils.toArray("#scene-1 .s1-row .w");
+      const s1Spec = [
+        { y: 76, d: 0.2 },   // Every (anchor)
+        { y: 48, d: 0.15 },  // render
+        { y: 46, d: 0.14 },  // ships
+        { y: 34, d: 0.11 },  // a (light)
+        { y: 80, d: 0.2 },   // receipt. (anchor climax)
+      ];
+      let cursor = 0.2;
+      s1Words.forEach((el, i) => {
+        const { y, d } = s1Spec[i];
+        tl.set(el, { autoAlpha: 1, y }, cursor);
+        tl.to(el, { y: 0, duration: d, ease: "power4.out" }, cursor);
+        cursor += d - 0.033; // ~1-frame overlap, wave not queue
+      });
+
+      // Command card single entry (≤800ms), then sequenced UI life.
+      tl.to("#cmd-card", { autoAlpha: 1, y: 0, duration: 0.55, ease: "power4.out" }, 1.5);
+      tl.to("#bar-fill", { scaleX: 0.72, duration: 1.5, ease: "none" }, 2.2);
+      tl.set("#bar-label", { textContent: "encoding video…" }, 3.7);
+      tl.to("#bar-fill", { scaleX: 1, duration: 0.9, ease: "none" }, 3.7);
+      tl.set("#bar-label", { textContent: "artifact validated · committed" }, 4.6);
+      tl.to("#s1-status", { autoAlpha: 1, y: 0, duration: 0.4, ease: "power4.out" }, 4.8);
+
+      // ── Seam 1 (6.2s) · cut-the-curve LEFT ──────────────────────────────
+      // Exit: partial travel, power4.in; fade is a separate linear tween
+      // that completes right at the cut. Travel/durations sized so the
+      // carried motion stays legible at 30fps.
+      tl.to("#scene-1", { x: -400, duration: 0.4, ease: "power4.in" }, S1_CUT - 0.4);
+      tl.to("#scene-1", { autoAlpha: 0, duration: 0.2, ease: "none" }, S1_CUT - 0.22);
+      // Entry: ignites mid-path, mirrored power4.out. The opacity ramp is
+      // fast (0.25s) so the mid-seam window never reads as a dark blank
+      // frame on the dark canvas.
+      tl.set("#scene-2", { x: 400, autoAlpha: 0.5 }, S1_CUT);
+      tl.to("#scene-2", { x: 0, duration: 0.6, ease: "power4.out" }, S1_CUT);
+      tl.to("#scene-2", { autoAlpha: 1, duration: 0.25, ease: "none" }, S1_CUT);
+
+      // ── S2 · staged reveals (title rode the seam; cards arrive on beats,
+      // heavier card travels further) ─────────────────────────────────────
+      tl.set("#card-video", { autoAlpha: 1, y: 56 }, 7.2);
+      tl.to("#card-video", { y: 0, duration: 0.2, ease: "power4.out" }, 7.2);
+      tl.set("#card-sidecar", { autoAlpha: 1, y: 68 }, 7.65);
+      tl.to("#card-sidecar", { y: 0, duration: 0.22, ease: "power4.out" }, 7.65);
+      // Highlight ring lands on the sidecar card (snap from 1.08, binary alpha).
+      tl.set("#ring", { autoAlpha: 1, scale: 1.08 }, 8.6);
+      tl.to("#ring", { scale: 1, duration: 0.28, ease: "power4.out" }, 8.6);
+      tl.set("#s2-caption", { autoAlpha: 1, y: 26 }, 9.4);
+      tl.to("#s2-caption", { y: 0, duration: 0.16, ease: "power4.out" }, 9.4);
+      // Nudge curve (§7): the composed group slides up to make room —
+      // three-phase chain, tail ≥3× ramp-in in time. 120px over ~1.1s.
+      tl.to("#s2-group", { y: -12, duration: 0.22, ease: "power3.in" }, 10.6);
+      tl.to("#s2-group", { y: -90, duration: 0.2, ease: "none" }, 10.82);
+      tl.to("#s2-group", { y: -120, duration: 0.68, ease: "power4.out" }, 11.02);
+
+      // ── Seam 2 (12.4s) · cut-the-curve LEFT ─────────────────────────────
+      tl.to("#scene-2", { x: -400, duration: 0.4, ease: "power4.in" }, S2_CUT - 0.4);
+      tl.to("#scene-2", { autoAlpha: 0, duration: 0.2, ease: "none" }, S2_CUT - 0.22);
+      tl.set("#scene-3", { x: 400, autoAlpha: 0.5 }, S2_CUT);
+      tl.to("#scene-3", { x: 0, duration: 0.6, ease: "power4.out" }, S2_CUT);
+      tl.to("#scene-3", { autoAlpha: 1, duration: 0.25, ease: "none" }, S2_CUT);
+
+      // ── S3 · sequenced UI life: groups tick in, scanline steps down ─────
+      const groupBeats = [
+        { sel: "#grp-versions", t: 12.85, top: 40 },
+        { sel: "#grp-input", t: 15.0, top: 196 },
+        { sel: "#grp-output", t: 17.4, top: 352 },
+      ];
+      // Scanline is fixed at top:40 in CSS; it travels via transforms only
+      // (y offset + scaleY growth) so the seek-by-frame capture stays smooth.
+      gsap.set("#scanline", { transformOrigin: "top left" });
+      groupBeats.forEach(({ sel, t, top }, i) => {
+        tl.set(sel, { autoAlpha: 1, y: 24 }, t);
+        tl.to(sel, { y: 0, duration: 0.18, ease: "power4.out" }, t);
+        const yOffset = top - 40;
+        if (i === 0) tl.set("#scanline", { autoAlpha: 1, y: yOffset }, t);
+        else tl.to("#scanline", { y: yOffset, duration: 0.3, ease: "power4.out" }, t);
+        tl.to("#scanline", { scaleY: 116 / 52, duration: 0.3, ease: "power4.out" }, t);
+      });
+
+      // ── Seam 3 (20.2s) · inverse zoom-through (ARRIVAL) ─────────────────
+      // Exit: scene-3 recedes (shrinking), blur to 10px, opacity via its own
+      // linear tween. Entry: scene-4 arrives OVERSIZED and retracts —
+      // scale-velocity sign matches (both shrinking).
+      tl.to("#scene-3", { scale: 0.78, duration: 0.3, ease: "power3.in" }, S3_CUT - 0.3);
+      tl.to("#scene-3", { filter: "blur(10px)", duration: 0.3, ease: "power3.in" }, S3_CUT - 0.3);
+      tl.to("#scene-3", { autoAlpha: 0.15, duration: 0.3, ease: "none" }, S3_CUT - 0.3);
+      tl.set("#scene-3", { autoAlpha: 0 }, S3_CUT);
+      // power3.out (not expo) keeps the oversized retraction visible for
+      // several frames at 30fps instead of collapsing on frame one.
+      tl.set("#scene-4", { scale: 1.32, filter: "blur(10px)", autoAlpha: 0.15 }, S3_CUT);
+      tl.to("#scene-4", { scale: 1, duration: 0.7, ease: "power3.out" }, S3_CUT);
+      tl.to("#scene-4", { filter: "blur(0px)", duration: 0.7, ease: "power3.out" }, S3_CUT);
+      tl.to("#scene-4", { autoAlpha: 1, duration: 0.5, ease: "none" }, S3_CUT);
+
+      // S4 staged reveals AFTER the retraction settles (sign discipline).
+      const chips = gsap.utils.toArray("#s4-chips .chip");
+      chips.forEach((el, i) => {
+        const t = 21.4 + i * 0.16;
+        tl.set(el, { autoAlpha: 1, y: 34 }, t);
+        tl.to(el, { y: 0, duration: 0.16, ease: "power4.out" }, t);
+      });
+      tl.set("#s4-schema", { autoAlpha: 1, y: 22 }, 22.7);
+      tl.to("#s4-schema", { y: 0, duration: 0.14, ease: "power4.out" }, 22.7);
+      // Stillness before climax (~0.7s), then the verification tick lands
+      // as the final beat with a short ~1.2s hold to the out-point.
+      tl.set("#s4-check", { autoAlpha: 1, y: 30 }, 23.6);
+      tl.to("#s4-check", { y: 0, duration: 0.2, ease: "power4.out" }, 23.6);
+
+      // Pin the timeline to the full composition duration.
+      tl.set({}, {}, 25);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

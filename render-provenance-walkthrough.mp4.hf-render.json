@@ -1,0 +1,65 @@
+{
+  "$schema": "https://hyperframes.heygen.com/schema/hf-render-sidecar.json",
+  "schemaVersion": 1,
+  "kind": "hf-render-sidecar",
+  "createdAt": "2026-09-08T01:44:59.570Z",
+  "versions": {
+    "producer": "0.8.31",
+    "node": "v22.22.2",
+    "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers"
+  },
+  "render": {
+    "jobId": "43d3aa1d-dab2-4658-99f7-dc1658d9121f",
+    "outcome": "completed",
+    "warningCodes": [],
+    "totalElapsedMs": 29113,
+    "stages": {
+      "compileOnlyMs": 216,
+      "browserProbeMs": 4,
+      "compileMs": 224,
+      "videoExtractMs": 0,
+      "audioProcessMs": 0,
+      "captureMs": 28784,
+      "captureFrameMs": 25446,
+      "captureSetupMs": 3338,
+      "encodeMs": 25441,
+      "assembleMs": 57
+    },
+    "workers": 1,
+    "quality": "standard"
+  },
+  "input": {
+    "entryFile": "index.html",
+    "entrySha256": "5575779f41e404f8636ed2f4e4401e7e79ee217eae9e3dd9ee457514d79daf83",
+    "compositionHash": "e093548308f7f95e",
+    "fonts": [
+      "Inter",
+      "JetBrains Mono"
+    ],
+    "variables": null
+  },
+  "output": {
+    "file": "walkthrough.mp4",
+    "format": "mp4",
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "width": 1920,
+    "height": 1080,
+    "durationSeconds": 25,
+    "totalFrames": 750,
+    "sizeBytes": 1833886,
+    "sha256": "6af87ebf6a630a417e64db98c6d6e05f50f3fa99dcc5063e3757ae3d4e8b8de1",
+    "hdr": false,
+    "encoder": {
+      "codec": "h264",
+      "preset": "medium",
+      "pixelFormat": "yuv420p"
+    }
+  },
+  "host": {
+    "platform": "linux",
+    "arch": "x64"
+  }
+}

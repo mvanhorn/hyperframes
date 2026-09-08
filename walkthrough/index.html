@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>NDJSON render progress for agents — HyperFrames walkthrough</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --canvas: #05070d;
+        --panel: #0d1117;
+        --panel-border: #232c38;
+        --panel-header: #161b22;
+        --text: #e6edf3;
+        --muted: #9aa7b4;
+        --key: #79c0ff;
+        --str: #a5d6ff;
+        --num: #ffa657;
+        --punct: #8ea0b0;
+        --cyan: #4fd6e8;
+        --green: #56d364;
+        --red: #ff7b72;
+        --amber: #e3b341;
+      }
+      body {
+        margin: 0;
+        background: var(--canvas);
+        color: var(--text);
+        font-family: Inter, system-ui, sans-serif;
+      }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--canvas);
+      }
+      .bg {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(1100px 700px at 30% 12%, rgba(79, 214, 232, 0.07), transparent 62%),
+          radial-gradient(900px 640px at 78% 88%, rgba(86, 211, 100, 0.05), transparent 60%),
+          var(--canvas);
+      }
+      .bg-grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(154, 167, 180, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(154, 167, 180, 0.05) 1px, transparent 1px);
+        background-size: 96px 96px;
+      }
+      .clip {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+      }
+      .stage-wrap {
+        display: grid;
+        place-items: center;
+        width: 1920px;
+      }
+      .mono {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+      }
+
+      /* ------- Scene 1: title ------- */
+      .kicker {
+        display: inline-block;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: 26px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        color: var(--cyan);
+        border: 2px solid rgba(79, 214, 232, 0.45);
+        border-radius: 999px;
+        padding: 12px 30px;
+        background: rgba(79, 214, 232, 0.08);
+      }
+      .s1-stack {
+        text-align: center;
+      }
+      .h1 {
+        margin: 34px 0 0;
+        font-size: 118px;
+        line-height: 1.05;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+      .h1 .w {
+        display: inline-block;
+      }
+      .h1-line2 {
+        margin-top: 6px;
+        font-size: 118px;
+        line-height: 1.05;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: var(--cyan);
+      }
+      .h1-line2 .w {
+        display: inline-block;
+      }
+      .s1-sample {
+        display: inline-block;
+        margin-top: 52px;
+        font-size: 24px;
+        color: var(--muted);
+        background: rgba(13, 17, 23, 0.85);
+        border: 1px solid var(--panel-border);
+        border-radius: 12px;
+        padding: 18px 30px;
+      }
+
+      /* ------- Terminals ------- */
+      .terminal {
+        width: 1620px;
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 18px;
+        box-shadow: 0 40px 90px rgba(0, 0, 0, 0.55);
+        overflow: hidden;
+      }
+      .term-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 20px 26px;
+        background: var(--panel-header);
+        border-bottom: 1px solid var(--panel-border);
+      }
+      .dot {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+      }
+      .dot-r { background: #f2555a; }
+      .dot-y { background: #f7bd45; }
+      .dot-g { background: #34c749; }
+      .term-title {
+        margin-left: 14px;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: 21px;
+        color: var(--muted);
+      }
+      .term-body {
+        padding: 30px 40px 26px;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: 21px;
+        line-height: 1.75;
+      }
+      .term-body .line {
+        white-space: pre;
+      }
+      .prompt-sign { color: var(--green); font-weight: 700; }
+      .cmd { color: var(--text); }
+      .flagv { color: var(--cyan); font-weight: 700; }
+      .type-cursor {
+        display: inline-block;
+        width: 13px;
+        height: 26px;
+        background: var(--cyan);
+        vertical-align: -3px;
+      }
+      .typed-clip {
+        display: inline-block;
+        overflow: hidden;
+        vertical-align: bottom;
+        white-space: pre;
+      }
+      .line { min-height: 37px; }
+      .tp { color: var(--punct); }
+      .tk { color: var(--key); }
+      .ts { color: var(--str); }
+      .tn { color: var(--num); }
+      .t-prog { color: var(--cyan); font-weight: 600; }
+      .t-done { color: var(--green); font-weight: 700; }
+      .t-fail { color: var(--red); font-weight: 700; }
+
+      /* Scene 2 HUD */
+      .hud {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 48px;
+        margin: 26px 40px 34px;
+        padding: 26px 36px;
+        background: rgba(22, 27, 34, 0.9);
+        border: 1px solid var(--panel-border);
+        border-radius: 14px;
+      }
+      .hud-left { flex: 1; }
+      .hud-label {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: 19px;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+        margin-bottom: 10px;
+      }
+      .hud-stage-slot {
+        position: relative;
+        height: 42px;
+      }
+      .hud-stage {
+        position: absolute;
+        left: 0;
+        top: 0;
+        font-size: 30px;
+        font-weight: 600;
+        color: var(--text);
+        white-space: nowrap;
+      }
+      .hud-bar {
+        margin-top: 18px;
+        width: 100%;
+        height: 14px;
+        background: rgba(154, 167, 180, 0.16);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .hud-bar-fill {
+        width: 100%;
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--cyan), var(--green));
+        transform-origin: left center;
+      }
+      .hud-pct {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: 96px;
+        font-weight: 700;
+        color: var(--text);
+        min-width: 300px;
+        text-align: right;
+      }
+      .hud-pct .unit { font-size: 48px; color: var(--muted); }
+
+      /* Scene 3 payoff banner */
+      .done-banner {
+        display: flex;
+        align-items: center;
+        gap: 26px;
+        margin: 24px 40px 36px;
+        padding: 28px 36px;
+        background: rgba(86, 211, 100, 0.1);
+        border: 2px solid rgba(86, 211, 100, 0.55);
+        border-radius: 14px;
+      }
+      .done-check {
+        display: grid;
+        place-items: center;
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: var(--green);
+        color: #04140a;
+        font-size: 40px;
+        font-weight: 800;
+      }
+      .done-main {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: 32px;
+        font-weight: 700;
+        color: var(--green);
+      }
+      .done-sub {
+        margin-top: 6px;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: 22px;
+        color: var(--muted);
+      }
+
+      /* Scene 4 failure */
+      .flash {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(1200px 800px at 50% 45%, rgba(248, 81, 73, 0.5), rgba(248, 81, 73, 0.12));
+        pointer-events: none;
+      }
+      .fail-extract {
+        margin: 26px 40px 36px;
+        padding: 30px 36px;
+        background: rgba(248, 81, 73, 0.09);
+        border: 2px solid rgba(248, 81, 73, 0.5);
+        border-radius: 14px;
+      }
+      .fail-label {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: 21px;
+        letter-spacing: 0.12em;
+        color: var(--red);
+        margin-bottom: 14px;
+      }
+      .fail-stage {
+        font-size: 66px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        color: var(--text);
+      }
+      .fail-stage .w { display: inline-block; }
+      .fail-meta {
+        display: flex;
+        gap: 18px;
+        margin-top: 22px;
+      }
+      .chip {
+        display: inline-block;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: 21px;
+        font-weight: 600;
+        padding: 10px 22px;
+        border-radius: 999px;
+      }
+      .chip-red {
+        color: var(--red);
+        border: 1.5px solid rgba(248, 81, 73, 0.55);
+        background: rgba(248, 81, 73, 0.1);
+      }
+      .chip-dim {
+        color: var(--muted);
+        border: 1.5px solid var(--panel-border);
+        background: rgba(22, 27, 34, 0.8);
+      }
+
+      /* Scene 5 end card */
+      .s5-stack { text-align: center; }
+      .s5-wordmark {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: 44px;
+        font-weight: 600;
+        color: var(--muted);
+      }
+      .s5-wordmark strong { color: var(--text); font-weight: 700; }
+      .flag-row {
+        margin-top: 44px;
+      }
+      .flag-chip {
+        display: inline-block;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: 56px;
+        font-weight: 700;
+        color: var(--text);
+        background: rgba(13, 17, 23, 0.92);
+        border: 2px solid rgba(79, 214, 232, 0.5);
+        border-radius: 18px;
+        padding: 28px 46px;
+      }
+      .flag-chip .flagv { color: var(--cyan); }
+      .flag-chip.small {
+        font-size: 42px;
+        padding: 22px 38px;
+        border-color: var(--panel-border);
+      }
+      .s5-events {
+        margin-top: 52px;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-size: 26px;
+        color: var(--muted);
+      }
+      .s5-events .t-prog, .s5-events .t-done, .s5-events .t-fail { font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="ndjson-walkthrough"
+      data-start="0"
+      data-width="1920"
+      data-height="1080"
+      data-duration="25"
+    >
+      <div class="bg"></div>
+      <div class="bg-grid"></div>
+
+      <!-- Scene 1 — Title (0–3s) -->
+      <section id="s1" class="clip" data-start="0" data-duration="3" data-track-index="0">
+        <div id="s1-stack" class="s1-stack">
+          <div id="s1-kicker" class="kicker">hyperframes render</div>
+          <h1 class="h1">
+            <span class="w" id="s1-w1">NDJSON</span>
+            <span class="w" id="s1-w2">render</span>
+            <span class="w" id="s1-w3">progress</span>
+          </h1>
+          <div class="h1-line2"><span class="w" id="s1-w4">for agents</span></div>
+          <div id="s1-sample" class="s1-sample mono"></div>
+        </div>
+      </section>
+
+      <!-- Scene 2 — NDJSON stream (3–10s) -->
+      <section id="s2" class="clip" data-start="3" data-duration="7" data-track-index="0">
+        <div id="s2-stage" class="stage-wrap">
+          <div class="terminal">
+            <div class="term-head">
+              <div class="dot dot-r"></div>
+              <div class="dot dot-y"></div>
+              <div class="dot dot-g"></div>
+              <div class="term-title">agent session — hyperframes render</div>
+            </div>
+            <div class="term-body">
+              <div class="line"><span class="prompt-sign">$ </span><span id="s2-typed" class="typed-clip" data-layout-allow-overflow><span id="s2-cmd" class="cmd">npx hyperframes render index.html <span class="flagv">--progress-format ndjson</span></span></span><span id="s2-cursor" class="type-cursor"></span></div>
+              <div id="s2-lines"></div>
+            </div>
+            <div class="hud">
+              <div class="hud-left">
+                <div class="hud-label">RENDER.PROGRESS</div>
+                <div class="hud-stage-slot" id="s2-stagelabels">
+                  <div class="hud-stage">waiting for events…</div>
+                </div>
+                <div class="hud-bar"><div class="hud-bar-fill" id="s2-bar"></div></div>
+              </div>
+              <div class="hud-pct"><span id="s2-pct">0</span><span class="unit">%</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Scene 3 — jq / agent consumption (10–16s) -->
+      <section id="s3" class="clip" data-start="10" data-duration="6" data-track-index="0">
+        <div id="s3-stage" class="stage-wrap">
+          <div class="terminal">
+            <div class="term-head">
+              <div class="dot dot-r"></div>
+              <div class="dot dot-y"></div>
+              <div class="dot dot-g"></div>
+              <div class="term-title">agent session — consuming the stream with jq</div>
+            </div>
+            <div class="term-body">
+              <div class="line"><span class="prompt-sign">$ </span><span class="cmd">npx hyperframes render index.html <span class="flagv">--progress-format ndjson</span> \</span></div>
+              <div class="line"><span class="cmd">    | jq -r <span class="ts">'.type + "  " + (.stage // .status)'</span></span></div>
+              <div id="s3-lines"></div>
+            </div>
+            <div id="s3-done" class="done-banner">
+              <div class="done-check">✓</div>
+              <div>
+                <div class="done-main">render.completed</div>
+                <div class="done-sub">exactly one terminal event per render — branch on it, not on log text</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Scene 4 — failure path (16–22s) -->
+      <section id="s4" class="clip" data-start="16" data-duration="6" data-track-index="0">
+        <div id="s4-stage" class="stage-wrap">
+          <div class="terminal">
+            <div class="term-head">
+              <div class="dot dot-r"></div>
+              <div class="dot dot-y"></div>
+              <div class="dot dot-g"></div>
+              <div class="term-title">agent session — when the render dies</div>
+            </div>
+            <div class="term-body">
+              <div class="line"><span class="prompt-sign">$ </span><span class="cmd">npx hyperframes render broken.html <span class="flagv">--progress-format ndjson</span> &gt; events.ndjson</span></div>
+              <div id="s4-lines"></div>
+              <div id="s4-jq" class="line"><span class="prompt-sign">$ </span><span class="cmd">jq -r <span class="ts">'select(.type=="render.failed") | .failedStage'</span> events.ndjson</span></div>
+            </div>
+            <div id="s4-extract" class="fail-extract">
+              <div class="fail-label">FAILEDSTAGE</div>
+              <div class="fail-stage">
+                <span class="w" id="s4-fw1">Extracting</span>
+                <span class="w" id="s4-fw2">video</span>
+                <span class="w" id="s4-fw3">frames</span>
+              </div>
+              <div class="fail-meta">
+                <span id="s4-chip1" class="chip chip-red">exit code 1</span>
+                <span id="s4-chip2" class="chip chip-dim">errorDetails: message · timings · console tail</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="s4-flash" class="flash"></div>
+      </section>
+
+      <!-- Scene 5 — end card (22–25s) -->
+      <section id="s5" class="clip" data-start="22" data-duration="3" data-track-index="0">
+        <div id="s5-stage" class="stage-wrap">
+          <div class="s5-stack">
+            <div class="s5-wordmark"><strong>hyperframes render</strong> — machine-readable progress</div>
+            <div class="flag-row">
+              <div class="flag-chip">--progress-format <span class="flagv">&lt;tty|ndjson|none&gt;</span></div>
+            </div>
+            <div class="flag-row" id="s5-flag2">
+              <div class="flag-chip small">--progress-fd <span class="flagv">&lt;n&gt;</span></div>
+            </div>
+            <div class="s5-events" id="s5-events">
+              <span class="t-prog">render.progress</span>
+              <span class="tp">  ·  </span>
+              <span class="t-done">render.completed</span>
+              <span class="tp">  ·  </span>
+              <span class="t-fail">render.failed</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      // ---------- build-time DOM: syntax-highlighted NDJSON lines ----------
+      function hl(json) {
+        let out = "";
+        const re = /("(?:[^"\\]|\\.)*")(\s*:)?|(-?\d+(?:\.\d+)?)|([{}\[\],:])/g;
+        let last = 0;
+        let m;
+        while ((m = re.exec(json)) !== null) {
+          out += json.slice(last, m.index);
+          last = re.lastIndex;
+          if (m[1] !== undefined) {
+            let cls = m[2] ? "tk" : "ts";
+            if (!m[2]) {
+              if (m[1] === '"render.progress"') cls = "t-prog";
+              else if (m[1] === '"render.completed"') cls = "t-done";
+              else if (m[1] === '"render.failed"') cls = "t-fail";
+            }
+            out += '<span class="' + cls + '">' + m[1] + "</span>" + (m[2] ? '<span class="tp">:</span>' : "");
+          } else if (m[3] !== undefined) {
+            out += '<span class="tn">' + m[3] + "</span>";
+          } else {
+            out += '<span class="tp">' + m[4] + "</span>";
+          }
+        }
+        out += json.slice(last);
+        return out;
+      }
+
+      const s2Events = [
+        '{"type":"render.progress","progress":0.04,"status":"rendering","stage":"Compiling composition"}',
+        '{"type":"render.progress","progress":0.18,"stage":"Starting frame capture","framesRendered":0,"totalFrames":750}',
+        '{"type":"render.progress","progress":0.42,"stage":"Capturing frames","framesRendered":315,"totalFrames":750}',
+        '{"type":"render.progress","progress":0.71,"stage":"Capturing frames","framesRendered":533,"totalFrames":750}',
+        '{"type":"render.progress","progress":0.90,"stage":"Encoding video","framesRendered":750,"totalFrames":750}',
+        '{"type":"render.progress","progress":1.00,"stage":"Finalizing output","framesRendered":750,"totalFrames":750}',
+      ];
+      const s2Stages = [
+        "Compiling composition",
+        "Starting frame capture",
+        "Capturing frames",
+        "Capturing frames",
+        "Encoding video",
+        "Finalizing output",
+      ];
+      const s2Pcts = [4, 18, 42, 71, 90, 100];
+
+      const s3Rows = [
+        ["t-prog", "render.progress", "Compiling composition"],
+        ["t-prog", "render.progress", "Starting frame capture"],
+        ["t-prog", "render.progress", "Capturing frames"],
+        ["t-prog", "render.progress", "Encoding video"],
+        ["t-done", "render.completed", "complete"],
+      ];
+
+      const s4Events = [
+        '{"type":"render.progress","progress":0.42,"stage":"Capturing frames","framesRendered":315,"totalFrames":750}',
+        '{"type":"render.failed","status":"failed","failedStage":"Extracting video frames","errorDetails":{...}}',
+      ];
+
+      const s1SampleEl = document.getElementById("s1-sample");
+      s1SampleEl.innerHTML = hl('{"type":"render.progress","progress":0.42,"stage":"Capturing frames"}');
+
+      // Stage labels are pre-rendered stacked in the slot and toggled with binary
+      // sets — scrub-safe (no textContent mutation on the timeline).
+      const stageSlot = document.getElementById("s2-stagelabels");
+      for (const s of s2Stages) {
+        const d = document.createElement("div");
+        d.className = "hud-stage stage-label";
+        d.textContent = s;
+        stageSlot.appendChild(d);
+      }
+
+      const s2Lines = document.getElementById("s2-lines");
+      for (const ev of s2Events) {
+        const d = document.createElement("div");
+        d.className = "line s2-line";
+        d.innerHTML = hl(ev);
+        s2Lines.appendChild(d);
+      }
+
+      const s3Lines = document.getElementById("s3-lines");
+      for (const [cls, type, rest] of s3Rows) {
+        const d = document.createElement("div");
+        d.className = "line s3-line";
+        d.innerHTML = '<span class="' + cls + '">' + type + "</span><span class=\"tp\">  </span>" + rest;
+        s3Lines.appendChild(d);
+      }
+
+      const s4Lines = document.getElementById("s4-lines");
+      for (const ev of s4Events) {
+        const d = document.createElement("div");
+        d.className = "line s4-line";
+        d.innerHTML = hl(ev);
+        s4Lines.appendChild(d);
+      }
+
+      // ---------- timeline ----------
+      const CUT2 = 3, CUT3 = 10, CUT4 = 16, CUT5 = 22;
+      const tl = gsap.timeline({ paused: true });
+
+      // Initial states (build-time; the timeline only moves things forward).
+      gsap.set(["#s1-kicker", "#s1-w1", "#s1-w2", "#s1-w3", "#s1-w4", "#s1-sample"], { autoAlpha: 0 });
+      gsap.set("#s2-typed", { width: 0 });
+      gsap.set(".s2-line", { autoAlpha: 0 });
+      gsap.set(".stage-label", { autoAlpha: 0 });
+      gsap.set("#s2-bar", { scaleX: 0 });
+      gsap.set(".s3-line", { autoAlpha: 0 });
+      gsap.set("#s3-done", { autoAlpha: 0 });
+      gsap.set(".s4-line", { autoAlpha: 0 });
+      gsap.set(["#s4-jq", "#s4-extract", "#s4-chip1", "#s4-chip2", "#s4-fw1", "#s4-fw2", "#s4-fw3"], { autoAlpha: 0 });
+      gsap.set("#s4-flash", { autoAlpha: 0 });
+      gsap.set(["#s5-flag2", "#s5-events"], { autoAlpha: 0 });
+
+      // ----- Scene 1: waterfall entry (arrival — binary opacity, y from below) -----
+      function arrive(t, target, y, dur) {
+        tl.set(target, { autoAlpha: 1 }, t);
+        tl.fromTo(target, { y: y }, { y: 0, duration: dur, ease: "power4.out" }, t);
+      }
+      arrive(0.15, "#s1-kicker", 44, 0.14);
+      arrive(0.30, "#s1-w1", 74, 0.19);
+      arrive(0.47, "#s1-w2", 48, 0.15);
+      arrive(0.60, "#s1-w3", 66, 0.18);
+      arrive(0.76, "#s1-w4", 46, 0.14);
+      arrive(1.70, "#s1-sample", 30, 0.16);
+
+      // S1 exit — cut the curve, leftward (the film's current). Motion 0.34s power4.in
+      // ending at the cut; fade is a separate linear tween dying exactly at the cut.
+      tl.to("#s1-stack", { x: -230, duration: 0.34, ease: "power4.in" }, CUT2 - 0.34);
+      tl.to("#s1-stack", { autoAlpha: 0, duration: 0.2, ease: "none" }, CUT2 - 0.2);
+      tl.set("#s1-stack", { autoAlpha: 0 }, CUT2);
+
+      // ----- Scene 2 entry — continues leftward, mid-path ignition -----
+      tl.fromTo("#s2-stage", { x: 230 }, { x: 0, duration: 0.4, ease: "power4.out" }, CUT2);
+      tl.fromTo("#s2-stage", { autoAlpha: 0.35 }, { autoAlpha: 1, duration: 0.25, ease: "none" }, CUT2);
+
+      // Typing the command (stepped clip reveal), cursor retires when output starts.
+      tl.fromTo("#s2-typed", { width: "0ch" }, { width: "58.4ch", duration: 1.1, ease: "steps(58)" }, 3.45);
+      tl.set("#s2-cursor", { autoAlpha: 0 }, 4.85);
+
+      // Streaming NDJSON lines + HUD ticks (sequenced UI life).
+      const s2LineTimes = [4.9, 5.6, 6.3, 7.1, 7.9, 8.7];
+      const pctObj = { v: 0 };
+      const pctEl = document.getElementById("s2-pct");
+      const stageEls = gsap.utils.toArray(".stage-label");
+      const waitingEl = document.querySelector("#s2-stagelabels .hud-stage:not(.stage-label)");
+      s2LineTimes.forEach((t, i) => {
+        const line = ".s2-line:nth-child(" + (i + 1) + ")";
+        tl.set(line, { autoAlpha: 1 }, t);
+        tl.fromTo(line, { y: 16 }, { y: 0, duration: 0.13, ease: "power4.out" }, t);
+        tl.to(pctObj, {
+          v: s2Pcts[i],
+          duration: 0.45,
+          ease: "power2.out",
+          onUpdate: () => { pctEl.textContent = String(Math.round(pctObj.v)); },
+        }, t);
+        tl.to("#s2-bar", { scaleX: s2Pcts[i] / 100, duration: 0.45, ease: "power2.out" }, t);
+        // Stage label hard swap (binary sets — no crossfade).
+        tl.set(i === 0 ? waitingEl : stageEls[i - 1], { autoAlpha: 0 }, t);
+        tl.set(stageEls[i], { autoAlpha: 1 }, t);
+      });
+
+      // ----- Scene 2 exit -----
+      tl.to("#s2-stage", { x: -230, duration: 0.34, ease: "power4.in" }, CUT3 - 0.34);
+      tl.to("#s2-stage", { autoAlpha: 0, duration: 0.2, ease: "none" }, CUT3 - 0.2);
+      tl.set("#s2-stage", { autoAlpha: 0 }, CUT3);
+
+      // ----- Scene 3 entry -----
+      tl.fromTo("#s3-stage", { x: 230 }, { x: 0, duration: 0.4, ease: "power4.out" }, CUT3);
+      tl.fromTo("#s3-stage", { autoAlpha: 0.35 }, { autoAlpha: 1, duration: 0.25, ease: "none" }, CUT3);
+
+      const s3LineTimes = [10.8, 11.4, 12.0, 12.6, 13.2];
+      s3LineTimes.forEach((t, i) => {
+        const line = ".s3-line:nth-child(" + (i + 1) + ")";
+        tl.set(line, { autoAlpha: 1 }, t);
+        tl.fromTo(line, { y: 16 }, { y: 0, duration: 0.13, ease: "power4.out" }, t);
+      });
+      // Payoff banner — stillness beat after the last line, then arrival.
+      tl.set("#s3-done", { autoAlpha: 1 }, 13.85);
+      tl.fromTo("#s3-done", { y: 56 }, { y: 0, duration: 0.2, ease: "power4.out" }, 13.85);
+      tl.fromTo(
+        "#s3-done",
+        { boxShadow: "0 0 0px 0px rgba(86,211,100,0)" },
+        { boxShadow: "0 0 44px 6px rgba(86,211,100,0.28)", duration: 0.26, ease: "power2.out", yoyo: true, repeat: 1 },
+        13.85
+      );
+
+      // ----- Scene 3 exit -----
+      tl.to("#s3-stage", { x: -230, duration: 0.34, ease: "power4.in" }, CUT4 - 0.34);
+      tl.to("#s3-stage", { autoAlpha: 0, duration: 0.2, ease: "none" }, CUT4 - 0.2);
+      tl.set("#s3-stage", { autoAlpha: 0 }, CUT4);
+
+      // ----- Scene 4 entry -----
+      tl.fromTo("#s4-stage", { x: 230 }, { x: 0, duration: 0.4, ease: "power4.out" }, CUT4);
+      tl.fromTo("#s4-stage", { autoAlpha: 0.35 }, { autoAlpha: 1, duration: 0.25, ease: "none" }, CUT4);
+
+      // Progress tick, then the failure event lands with a same-frame red flash.
+      tl.set(".s4-line:nth-child(1)", { autoAlpha: 1 }, 16.9);
+      tl.fromTo(".s4-line:nth-child(1)", { y: 16 }, { y: 0, duration: 0.13, ease: "power4.out" }, 16.9);
+      tl.set(".s4-line:nth-child(2)", { autoAlpha: 1 }, 17.7);
+      tl.fromTo(".s4-line:nth-child(2)", { y: 16 }, { y: 0, duration: 0.13, ease: "power4.out" }, 17.7);
+      tl.to("#s4-flash", { autoAlpha: 0.3, duration: 0.09, ease: "power1.out" }, 17.7);
+      tl.to("#s4-flash", { autoAlpha: 0, duration: 0.38, ease: "power2.out" }, 17.79);
+
+      // jq extraction beat (cause → result, with a dramatic comma before the payoff).
+      tl.set("#s4-jq", { autoAlpha: 1 }, 18.6);
+      tl.fromTo("#s4-jq", { y: 16 }, { y: 0, duration: 0.13, ease: "power4.out" }, 18.6);
+      tl.set("#s4-extract", { autoAlpha: 1 }, 19.25);
+      tl.fromTo("#s4-extract", { y: 40 }, { y: 0, duration: 0.18, ease: "power4.out" }, 19.25);
+      arrive(19.35, "#s4-fw1", 70, 0.19);
+      arrive(19.51, "#s4-fw2", 48, 0.14);
+      arrive(19.63, "#s4-fw3", 44, 0.13);
+      arrive(20.05, "#s4-chip1", 30, 0.13);
+      arrive(20.18, "#s4-chip2", 30, 0.13);
+
+      // ----- Scene 4 exit — inverse zoom-through (pull back; the end card ARRIVES) -----
+      tl.to("#s4-stage", { scale: 0.8, duration: 0.25, ease: "power3.in" }, CUT5 - 0.25);
+      tl.to("#s4-stage", { filter: "blur(18px)", duration: 0.25, ease: "power3.in" }, CUT5 - 0.25);
+      tl.to("#s4-stage", { autoAlpha: 0.15, duration: 0.25, ease: "none" }, CUT5 - 0.25);
+      tl.set("#s4-stage", { autoAlpha: 0 }, CUT5);
+
+      // ----- Scene 5 entry — oversized, retracting into the focal plane (same Z sign) -----
+      tl.fromTo("#s5-stage", { scale: 1.25 }, { scale: 1, duration: 0.5, ease: "expo.out" }, CUT5);
+      tl.fromTo("#s5-stage", { filter: "blur(18px)" }, { filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, CUT5);
+      tl.fromTo("#s5-stage", { autoAlpha: 0.15 }, { autoAlpha: 1, duration: 0.3, ease: "none" }, CUT5);
+
+      // Staged reveals after the retraction settles (outside the seam window).
+      arrive(23.0, "#s5-flag2", 40, 0.16);
+      arrive(23.45, "#s5-events", 30, 0.14);
+
+      window.__timelines["ndjson-walkthrough"] = tl;
+    </script>
+  </body>
+</html>

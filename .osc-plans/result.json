@@ -1,0 +1,33 @@
+{
+  "status": "ok",
+  "plans_written": 2,
+  "chosen_features": [
+    {
+      "title": "Authored chapter markers",
+      "plan_file": ".osc-plans/2026-10-02-01-feat-authored-chapter-markers-plan.md",
+      "deep_rubric_score": 87,
+      "complexity": "M"
+    },
+    {
+      "title": "Safe-frame crop packs",
+      "plan_file": ".osc-plans/2026-10-02-02-feat-safe-frame-crop-packs-plan.md",
+      "deep_rubric_score": 85,
+      "complexity": "M"
+    }
+  ],
+  "autonomous_check_inputs": {
+    "PROCESS_LEVEL": "direct-pr-ok; issues encouraged not required; no discussion gate before pull request",
+    "NO_AI_OPPOSED": true,
+    "NO_COMPETING_PRS": true,
+    "HAS_PRECEDENT": true,
+    "WARMTH_SCORE": 72,
+    "OPEN_PRS_AUTHORED": 4,
+    "REPO_OPEN_PRS_TOTAL": 97,
+    "IS_OWN_PROJECT": false
+  },
+  "social_pass": {
+    "status": "ok",
+    "provenance": "host_handoff"
+  },
+  "proposal_lane": false
+}
